@@ -4,8 +4,8 @@ This is a repository that aims at prototyping deep learning algorithms into depl
 # Installation
 Use the [Anaconda](https://conda.io/docs/index.html) environment simply execute the following command.
 
-Windows:'''ctivate DL_projects'''
-maxOS/Linux:'''source activate DL_projects'''
+Windows:```activate DL_projects```
+maxOS/Linux:```source activate DL_projects```
 
 # Projects
 The following is a list of abstracts of all projects in this repository.
