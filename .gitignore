@@ -1,3 +1,12 @@
 
 *.pem
 Comic-GAN/NicoNico/*
+*.jpg
+
+*.png
+
+*.gif
+
+*.ipynb
+
+*.jpeg
