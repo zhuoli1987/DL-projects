@@ -2,11 +2,22 @@
 This is a repository that aims at prototyping deep learning algorithms into deployable products.
 
 # Installation
-Use the [Anaconda](https://conda.io/docs/index.html) environment simply execute the following command.
+Use the [Anaconda](https://conda.io/docs/index.html) prompt to create a new environment:
 
-Windows:```activate DL_projects```
+```
+conda env create -f DL-projects-win.yml
+```
 
-maxOS/Linux:```source activate DL_projects```
+Activate the environment by executing the following command.
+
+Windows:```activate DL-projects-win```
+
+maxOS/Linux:```source activate DL-projects```
+
+# Prerequisites
+This project uses tensorflow-gpu (declared in the environment yml file) and therefore requires the following installed:
+- CUDA 9.0
+- cudnn 7.0
 
 # Projects
 The following is a list of abstracts of all projects in this repository.

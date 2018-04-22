@@ -14,3 +14,7 @@ Comic-GAN/NicoNico/*
 *.csv
 
 *.json
+
+Comic-GAN/.ipynb_checkpoints/
+
+Comic-GAN/data/
