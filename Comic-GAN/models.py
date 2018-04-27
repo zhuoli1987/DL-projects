@@ -2,6 +2,8 @@
 import numpy as np
 import tensorflow as tf
 import modelutils as mu
+import utils
+import os
 import datetime
 
 
@@ -89,6 +91,10 @@ def train(model, z_size, dataset, epochs, batch_size, print_every=10, show_every
         # Initialize the variables, this is a 
         # standard tensorflow operation
         sess.run(tf.global_variables_initializer())
+
+        # Try to restore the check point
+        if os.listdir('./{}'.format(checkpoints_path)):
+            saver.restore(sess, tf.train.latest_checkpoint('./{}'.format(checkpoints_path)))
         
         # Loop through epochs...
         for e in range(epochs):
@@ -119,10 +125,10 @@ def train(model, z_size, dataset, epochs, batch_size, print_every=10, show_every
                     
                 if steps % show_every == 0:
                     comic_gen = sess.run(
-                                    generator(model.input_z, model.image_size, 3, reuse=True, training=False),
+                                    mu.generator(model.input_z, model.image_size, 3, reuse=True, training=False),
                                     feed_dict={model.input_z: sample_z})
                     # Save generated samples
-                    save_samples(e+1, samples, './output/epoch_{}'.format(e+1))
+                    utils.save_samples(e+1, comic_gen, './output/epoch_{}'.format(e+1))
                     
             saver.save(sess, './{}/generator_epoch_{}.ckpt'.format(checkpoints_path, e+1))  
    

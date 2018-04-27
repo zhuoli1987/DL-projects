@@ -69,9 +69,11 @@ def save_samples(epoch, samples, ouput_dir):
     except OSError:
         pass
 
+    print(len(samples))
     index=1
     for img in samples:
         img = ((img - img.min())*255 / (img.max() - img.min())).astype(np.uint8)
         img = Image.fromarray(img)
-        img.save(ouput_dir + '/gen_img_{}_{}'.format(epoch,index))
+        print(type(img))
+        img.save(ouput_dir + '/gen_img_{}_{}.jpg'.format(epoch,index))
         index += 1

@@ -1,11 +1,5 @@
-import pickle as pkl
-
-import numpy as np
-import tensorflow as tf
-import matplotlib.pyplot as plt
 
 from glob import glob
-from PIL import Image
 from models import GAN
 from dataset import Dataset
 
@@ -14,7 +8,6 @@ import models
 import dataset
 import utils
 import argparse
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataDir', required=True, help='path to dataset, only need the folder name')
@@ -72,8 +65,8 @@ d_labelSmooth = args.d_labelSmooth
 model = GAN(real_size, z_size, learning_rate, image_size, alpha=alpha, beta1=beta1, label_smooth=d_labelSmooth)
 
 # Prepare the data
-dataset = Dataset(glob(os.path.join(data_folder_path, '**/*.jpg'), recursive=True))
+dataset = Dataset(glob(os.path.join(data_folder_path, '**/*.jpg'), recursive=True), image_width=image_size, image_height=image_size)
                   
 # Training the network
-losses, samples = models.train(model, z_size, dataset, epochs, batch_size)
+losses, samples = models.train(model, z_size, dataset, epochs, batch_size, print_every=100, show_every=10000)
 

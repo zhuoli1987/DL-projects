@@ -1,16 +1,13 @@
 
 *.pem
-Comic-GAN/NicoNico/*
 *.jpg
-
 *.png
-
 *.gif
-
 *.ipynb
-
 *.jpeg
-
 *.csv
-
 *.json
+*.meta
+*.index
+__pycache__/
+*.pyc
