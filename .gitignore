@@ -11,3 +11,4 @@
 *.index
 __pycache__/
 *.pyc
+Comic-GAN/samples.pkl

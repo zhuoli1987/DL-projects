@@ -1,3 +1,4 @@
+import pickle as pkl
 
 import numpy as np
 import tensorflow as tf
@@ -9,10 +10,10 @@ import datetime
 
 def model_inputs(real_dim, z_dim):
     input_real = tf.placeholder(tf.float32, (None, *real_dim), name='input_real')
-    input_z = tf.placeholder(tf.float32, (None, z_dim), name='input_z')
+    input_z = tf.placeholder(tf.float32, (None, *z_dim), name='input_z')
     return input_real, input_z
 
-def model_loss(input_real, image_dim, input_z, output_dim, alpha=0.2, label_smooth=1.0):
+def model_loss(input_real, image_dim, input_z, output_dim, alpha=0.2, label_smooth=1.0, g_fcn=True):
     """
     Get the loss for the discriminator and generator
     :param input_real: Images from the real dataset
@@ -24,16 +25,22 @@ def model_loss(input_real, image_dim, input_z, output_dim, alpha=0.2, label_smoo
     :return: A tuple of (discriminator loss, generator loss)
     """
     g_model = mu.generator(input_z, image_dim, output_dim, alpha=alpha)
+
     d_model_real, d_logits_real = mu.discriminator(input_real, image_dim, alpha=alpha)
     d_model_fake, d_logits_fake = mu.discriminator(g_model, image_dim, reuse=True, alpha=alpha)
+
+    label_g = tf.ones_like(d_model_fake)
+    #label_d_real = label_smooth*tf.ones_like(d_model_real)
+    label_d_real = tf.ones_like(d_model_real) - np.random.random_sample() * label_smooth
+    label_d_fake = tf.zeros_like(d_model_fake) + np.random.random_sample() * label_smooth
     
     g_loss = tf.reduce_mean(
-        tf.nn.sigmoid_cross_entropy_with_logits(logits=d_logits_fake, labels=label_smooth*tf.ones_like(d_model_fake)))
+        tf.nn.sigmoid_cross_entropy_with_logits(logits=d_logits_fake, labels=label_g))
     
     d_loss_real = tf.reduce_mean(
-        tf.nn.sigmoid_cross_entropy_with_logits(logits=d_logits_real, labels=label_smooth*tf.ones_like(d_model_real)))
+        tf.nn.sigmoid_cross_entropy_with_logits(logits=d_logits_real, labels=label_d_real))
     d_loss_fake = tf.reduce_mean(
-        tf.nn.sigmoid_cross_entropy_with_logits(logits=d_logits_fake, labels=tf.zeros_like(d_model_fake)))
+        tf.nn.sigmoid_cross_entropy_with_logits(logits=d_logits_fake, labels=label_d_fake))
     
     d_loss = d_loss_real + d_loss_fake
     
@@ -77,11 +84,14 @@ class GAN:
         # Get the optimized parameters
         self.d_opt, self.g_opt = model_opt(self.d_loss, self.g_loss, learning_rate, beta1=beta1)
 
-def train(model, z_size, dataset, epochs, batch_size, print_every=10, show_every=100, checkpoints_path='checkpoints'):
+def train(model, z_size, dataset, epochs, batch_size, print_every=10, show_every=100, use_gaussain=True, checkpoints_path='checkpoints'):
     saver = tf.train.Saver() # Saver used to save the checkpoints
     samples, losses = [], [] # Outputs
     
-    sample_z = np.random.uniform(-1, 1, size=(9, z_size)) # Generate 9 images
+    if use_gaussain:
+        sample_z = np.random.normal(0, 1, size=(batch_size, *z_size))
+    else:
+        sample_z = np.random.uniform(-1, 1, size=(batch_size, *z_size)) 
     
     steps = 0 # This variable is for showing the generator images
     
@@ -102,8 +112,11 @@ def train(model, z_size, dataset, epochs, batch_size, print_every=10, show_every
                 steps += 1
                 
                 # Sample random noise for G
-                batch_z = np.random.uniform(-1, 1, size=(batch_size, z_size))
-                
+                if use_gaussain:
+                    batch_z = np.random.normal(0, 1, size=(batch_size, *z_size))
+                else:
+                    batch_z = np.random.uniform(-1, 1, size=(batch_size, *z_size))
+
                 # Run optimizers
                 _ = sess.run(model.d_opt, feed_dict={model.input_real: x, model.input_z: batch_z})
                 _ = sess.run(model.g_opt, feed_dict={model.input_z: batch_z, model.input_real: x})
