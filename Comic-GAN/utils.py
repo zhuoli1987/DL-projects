@@ -1,5 +1,6 @@
 
 from PIL import Image
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 
@@ -18,6 +19,16 @@ def get_image(image_path, width, height, mode):
         # Resize image
         image = image.resize((width, height))
     
+    return np.array(image.convert(mode))
+
+def retrieve_image(image_path, mode):
+    """
+    Read image from image_path
+    :param image_path: Path of image
+    :param mode: Mode of image
+    :return: Image data
+    """
+    image = Image.open(image_path)
     return np.array(image.convert(mode))
 
 def get_batch(image_files, width, height, mode):
@@ -39,28 +50,30 @@ def scale(x, feature_range=(-1, 1)):
     x = x * (max - min) + min
     return x
 
-def view_samples(epoch, samples, nrows, ncols, figsize=(5,5)):
+def view_samples(epoch, image_files, nrows, ncols, mode, figsize=(5,5)):
     """
     Helper method to visualize the generated outout
     :param epoch: the number of iteration
     :param samples: generated image array
     """
+    samples =  np.array(
+        [retrieve_image(file, mode) for file in image_files]).astype(np.float32)
+
     fig, axes = plt.subplots(figsize=figsize, nrows=nrows, ncols=ncols, 
                              sharey=True, sharex=True)
-    for ax, img in zip(axes.flatten(), samples[epoch]):
+    for ax, img in zip(axes.flatten(), samples):
         ax.axis('off')
         img = ((img - img.min())*255 / (img.max() - img.min())).astype(np.uint8)
-        ax.set_adjustable('box-forced')
+        ax.set_adjustable('box')
         im = ax.imshow(img, aspect='equal')
     
     # No gap between subplots
     plt.subplots_adjust(wspace=0, hspace=0)
     return fig, axes
  
-def save_samples(epoch, samples, ouput_dir):
+def save_samples(samples, ouput_dir):
     """
     Helper method to save the generated output
-    :param epoch: the number of iteration
     :param samples: generated image array
     :param outputdir: dir path to store all the images
     """
@@ -73,5 +86,5 @@ def save_samples(epoch, samples, ouput_dir):
     for img in samples:
         img = ((img - img.min())*255 / (img.max() - img.min())).astype(np.uint8)
         img = Image.fromarray(img)
-        img.save(ouput_dir + '/gen_img_{}_{}.png'.format(epoch,index))
+        img.save(ouput_dir + '/gen_img_{}.jpg'.format(index))
         index += 1

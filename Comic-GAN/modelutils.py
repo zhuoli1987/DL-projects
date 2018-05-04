@@ -41,12 +41,14 @@ def generator(z, image_size, output_dim, reuse=False, alpha=0.2, training=True):
         
         return out
 
-def discriminator(x, image_size, reuse=False, alpha=0.2):
+def discriminator(x, image_size, reuse=False, alpha=0.2, drop_rate=0.):
     with tf.variable_scope('discriminator', reuse=reuse):
-        
+        x = tf.layers.dropout(x, rate=drop_rate/2.5)
+
         # Input is (image_size)x(image_size))x3
         layer1 = tf.layers.conv2d(x, image_size, 4, strides=2, padding='same', name='d_conv_1')
         relu1 = tf.nn.leaky_relu(layer1, alpha=alpha)
+        relu1 = tf.layers.dropout(relu1, rate=drop_rate)
 
         # (image_size)x(image_size))x3
         layer2 = tf.layers.conv2d(relu1, image_size*2, 4, strides=2, padding='same', name='d_conv_2')
@@ -57,16 +59,18 @@ def discriminator(x, image_size, reuse=False, alpha=0.2):
         layer3 = tf.layers.conv2d(relu2, image_size*4, 4, strides=2, padding='same', name='d_conv_3')
         bn3 = tf.layers.batch_normalization(layer3, training=True)
         relu3 = tf.nn.leaky_relu(bn3, alpha=alpha)
+        relu3 = tf.layers.dropout(relu3, rate=drop_rate)
 
         # (image_size/4)x(image_size/4)ximage_size*4
         layer4 = tf.layers.conv2d(relu3, image_size*8, 4, strides=2, padding='same', name='d_conv_4')
         bn4 = tf.layers.batch_normalization(layer4, training=True)
         relu4 = tf.nn.leaky_relu(bn4, alpha=alpha)
-        drop4 = tf.layers.dropout(relu4, rate=0.5)
 
         # 1024 x 1 x 1
-        flat = tf.reshape(drop4, (-1, 1024))
-        logits = tf.layers.dense(flat, 1)
+        #flat = tf.reshape(relu4, (-1, 1024))
+        features = tf.reduce_mean(relu4, (1,2))
+
+        logits = tf.layers.dense(features, 1)
         out = tf.sigmoid(logits)
 
-        return out, logits
+        return out, logits, features

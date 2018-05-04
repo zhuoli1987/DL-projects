@@ -13,7 +13,7 @@ def model_inputs(real_dim, z_dim):
     input_z = tf.placeholder(tf.float32, (None, *z_dim), name='input_z')
     return input_real, input_z
 
-def model_loss(input_real, image_dim, input_z, output_dim, alpha=0.2, label_smooth=1.0, g_fcn=True):
+def model_loss(input_real, image_dim, input_z, output_dim, alpha=0.2, label_smooth=1.0, drop_rate=0.):
     """
     Get the loss for the discriminator and generator
     :param input_real: Images from the real dataset
@@ -26,17 +26,24 @@ def model_loss(input_real, image_dim, input_z, output_dim, alpha=0.2, label_smoo
     """
     g_model = mu.generator(input_z, image_dim, output_dim, alpha=alpha)
 
-    d_model_real, d_logits_real = mu.discriminator(input_real, image_dim, alpha=alpha)
-    d_model_fake, d_logits_fake = mu.discriminator(g_model, image_dim, reuse=True, alpha=alpha)
+    d_model_real, d_logits_real, d_features_real = mu.discriminator(input_real, image_dim, alpha=alpha, drop_rate=drop_rate)
+    d_model_fake, d_logits_fake, d_features_fake = mu.discriminator(g_model, image_dim, reuse=True, alpha=alpha, drop_rate=drop_rate)
 
     label_g = tf.ones_like(d_model_fake)
     #label_d_real = label_smooth*tf.ones_like(d_model_real)
     label_d_real = tf.ones_like(d_model_real) - np.random.random_sample() * label_smooth
     label_d_fake = tf.zeros_like(d_model_fake) + np.random.random_sample() * label_smooth
     
-    g_loss = tf.reduce_mean(
-        tf.nn.sigmoid_cross_entropy_with_logits(logits=d_logits_fake, labels=label_g))
-    
+    #g_loss = tf.reduce_mean(
+    #    tf.nn.sigmoid_cross_entropy_with_logits(logits=d_logits_fake, labels=label_g))
+
+    # Feature matching
+    # This loss consists of minimizing the absolute difference between the expected features
+    # on the data and the expected features on the generated samples.
+    real_moments = tf.reduce_mean(d_features_real, axis=0)
+    fake_moments = tf.reduce_mean(d_features_fake, axis=0)
+    g_loss = tf.reduce_mean(tf.abs(real_moments - fake_moments))
+
     d_loss_real = tf.reduce_mean(
         tf.nn.sigmoid_cross_entropy_with_logits(logits=d_logits_real, labels=label_d_real))
     d_loss_fake = tf.reduce_mean(
@@ -68,30 +75,56 @@ def model_opt(d_loss, g_loss, learning_rate, beta1):
     return d_train_opt, g_train_opt
 
 class GAN:
-    def __init__(self, real_size, z_size, learning_rate, image_size, alpha=0.2, beta1=0.5, label_smooth=1.0):
+    def __init__(self, real_size, z_size, image_size, learning_rate=0.0002, alpha=0.2, beta1=0.5, label_smooth=1.0):
         tf.reset_default_graph()
 
         # Image size
         self.image_size = image_size
+
+        # Drop rate
+        self.drop_rate = tf.placeholder_with_default(.5, (), "drop_rate")
         
         # Create input place holders
         self.input_real, self.input_z = model_inputs(real_size, z_size)
         
         # Get the model losses
         self.d_loss, self.g_loss = model_loss(self.input_real, self.image_size, 
-        										self.input_z, real_size[2], alpha=alpha, label_smooth=label_smooth)
+        										self.input_z, real_size[2], alpha=alpha, 
+                                                label_smooth=label_smooth, drop_rate=self.drop_rate)
         
         # Get the optimized parameters
         self.d_opt, self.g_opt = model_opt(self.d_loss, self.g_loss, learning_rate, beta1=beta1)
+
+def gen(model, z_size, use_gaussain=True, checkpoints_path='checkpoints'):
+    saver = tf.train.Saver() # Saver used to save the checkpoints
+
+    if use_gaussain:
+        sample_z = np.random.normal(0, 1, size=(64, *z_size))
+    else:
+        sample_z = np.random.uniform(-1, 1, size=(64, *z_size)) 
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(config=config) as sess:
+
+        # Try to restore the check point
+        if os.listdir('./{}'.format(checkpoints_path)):
+            saver.restore(sess, tf.train.latest_checkpoint('./{}'.format(checkpoints_path)))
+
+        comic_gen = sess.run(mu.generator(model.input_z, model.image_size, 3, reuse=True, training=False),
+                                    feed_dict={model.input_z: sample_z})
+
+        # Save generated samples
+        utils.save_samples(0, comic_gen, './output/generated')
 
 def train(model, z_size, dataset, epochs, batch_size, print_every=10, show_every=100, use_gaussain=True, checkpoints_path='checkpoints'):
     saver = tf.train.Saver() # Saver used to save the checkpoints
     samples, losses = [], [] # Outputs
     
     if use_gaussain:
-        sample_z = np.random.normal(0, 1, size=(batch_size, *z_size))
+        sample_z = np.random.normal(0, 1, size=(64, *z_size))
     else:
-        sample_z = np.random.uniform(-1, 1, size=(batch_size, *z_size)) 
+        sample_z = np.random.uniform(-1, 1, size=(64, *z_size)) 
     
     steps = 0 # This variable is for showing the generator images
     
@@ -125,7 +158,7 @@ def train(model, z_size, dataset, epochs, batch_size, print_every=10, show_every
                 if steps % print_every == 0:
                     # At the end of each epoch, get the losses and print them out
                     train_loss_d = model.d_loss.eval({model.input_z:batch_z, model.input_real:x})
-                    train_loss_g = model.g_loss.eval({model.input_z:batch_z})
+                    train_loss_g = model.g_loss.eval({model.input_z:batch_z, model.input_real:x})
                     now_time = datetime.datetime.now()
 
                     print(now_time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -141,9 +174,9 @@ def train(model, z_size, dataset, epochs, batch_size, print_every=10, show_every
                                     mu.generator(model.input_z, model.image_size, 3, reuse=True, training=False),
                                     feed_dict={model.input_z: sample_z})
                     # Save generated samples
-                    utils.save_samples(e+1, comic_gen, './output/epoch_{}'.format(e+1))
+                    utils.save_samples(comic_gen, './output/gen_epoch_{}'.format(e+1))
                     
-            saver.save(sess, './{}/generator_epoch_{}.ckpt'.format(checkpoints_path, e+1))  
+            saver.save(sess, './{}/cgan_epoch_{}'.format(checkpoints_path, e+1))  
    
     with open('samples.pkl', 'wb') as f:
         pkl.dump(samples, f)
