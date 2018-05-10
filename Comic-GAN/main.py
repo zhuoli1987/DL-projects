@@ -23,6 +23,8 @@ parser.add_argument('--printevery', type=int, default=100, help='generate images
 parser.add_argument('--d_labelSmooth', type=float, default=0.0, help='for D, use soft label "1-labelSmooth" for real samples')
 parser.add_argument('--outDir', default='checkpoints', help='folder to output images and model checkpoints')
 parser.add_argument('--gaussain', action='store_true', help='if yes, then use gaussain random noise')
+parser.add_argument('--minibatch', action='store_true', help='if yes, then use the minibatch')
+
 
 # arg_list = [
 #     '--dataDir', 'anime-faces',
@@ -60,7 +62,7 @@ beta1 = args.beta1
 d_labelSmooth = args.d_labelSmooth
 
 # Create the network
-model = GAN(real_size, z_size, image_size, learning_rate, alpha=alpha, beta1=beta1, label_smooth=d_labelSmooth)
+model = GAN(real_size, z_size, image_size, learning_rate, alpha=alpha, beta1=beta1, label_smooth=d_labelSmooth,minibatch=args.minibatch)
 
 # Prepare the data
 dataset = Dataset(glob(os.path.join(data_folder_path, '**/danbooru*.*'), recursive=True), image_width=image_size, image_height=image_size)

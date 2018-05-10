@@ -13,7 +13,7 @@ def model_inputs(real_dim, z_dim):
     input_z = tf.placeholder(tf.float32, (None, *z_dim), name='input_z')
     return input_real, input_z
 
-def model_loss(input_real, image_dim, input_z, output_dim, alpha=0.2, label_smooth=1.0, drop_rate=0.):
+def model_loss(input_real, image_dim, input_z, output_dim, alpha=0.2, label_smooth=1.0, drop_rate=0.,minibatch=False):
     """
     Get the loss for the discriminator and generator
     :param input_real: Images from the real dataset
@@ -22,15 +22,15 @@ def model_loss(input_real, image_dim, input_z, output_dim, alpha=0.2, label_smoo
     :param out_channel_dim: The number of channels in the output image
     :param alpha: step size
 	:param label_smooth: label smoothing factor
+    :param minibatch: whether to use the minibatch or not
     :return: A tuple of (discriminator loss, generator loss)
     """
     g_model = mu.generator(input_z, image_dim, output_dim, alpha=alpha)
 
-    d_model_real, d_logits_real, d_features_real = mu.discriminator(input_real, image_dim, alpha=alpha, drop_rate=drop_rate)
-    d_model_fake, d_logits_fake, d_features_fake = mu.discriminator(g_model, image_dim, reuse=True, alpha=alpha, drop_rate=drop_rate)
+    d_model_real, d_logits_real, d_features_real = mu.discriminator(input_real, image_dim, alpha=alpha, drop_rate=drop_rate, minibatch=minibatch)
+    d_model_fake, d_logits_fake, d_features_fake = mu.discriminator(g_model, image_dim, reuse=True, alpha=alpha, drop_rate=drop_rate, minibatch=minibatch)
 
     label_g = tf.ones_like(d_model_fake)
-    #label_d_real = label_smooth*tf.ones_like(d_model_real)
     label_d_real = tf.ones_like(d_model_real) - np.random.random_sample() * label_smooth
     label_d_fake = tf.zeros_like(d_model_fake) + np.random.random_sample() * label_smooth
     
@@ -75,7 +75,7 @@ def model_opt(d_loss, g_loss, learning_rate, beta1):
     return d_train_opt, g_train_opt
 
 class GAN:
-    def __init__(self, real_size, z_size, image_size, learning_rate=0.0002, alpha=0.2, beta1=0.5, label_smooth=1.0):
+    def __init__(self, real_size, z_size, image_size, learning_rate=0.0002, alpha=0.2, beta1=0.5, label_smooth=1.0, minibatch=False):
         tf.reset_default_graph()
 
         # Image size
@@ -90,7 +90,8 @@ class GAN:
         # Get the model losses
         self.d_loss, self.g_loss = model_loss(self.input_real, self.image_size, 
         										self.input_z, real_size[2], alpha=alpha, 
-                                                label_smooth=label_smooth, drop_rate=self.drop_rate)
+                                                label_smooth=label_smooth, drop_rate=self.drop_rate,
+                                                minibatch=minibatch)
         
         # Get the optimized parameters
         self.d_opt, self.g_opt = model_opt(self.d_loss, self.g_loss, learning_rate, beta1=beta1)
@@ -115,7 +116,7 @@ def gen(model, z_size, use_gaussain=True, checkpoints_path='checkpoints'):
                                     feed_dict={model.input_z: sample_z})
 
         # Save generated samples
-        utils.save_samples(0, comic_gen, './output/generated')
+        utils.save_samples(comic_gen, './output/generated')
 
 def train(model, z_size, dataset, epochs, batch_size, print_every=10, show_every=100, use_gaussain=True, checkpoints_path='checkpoints'):
     saver = tf.train.Saver() # Saver used to save the checkpoints
@@ -138,6 +139,7 @@ def train(model, z_size, dataset, epochs, batch_size, print_every=10, show_every
         # Try to restore the check point
         if os.listdir('./{}'.format(checkpoints_path)):
             saver.restore(sess, tf.train.latest_checkpoint('./{}'.format(checkpoints_path)))
+            print("Privious check point loaded...")
         
         # Loop through epochs...
         for e in range(epochs):

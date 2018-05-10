@@ -1,7 +1,6 @@
 
 *.pem
 *.jpg
-*.png
 *.gif
 *.jpeg
 *.csv
@@ -10,4 +9,5 @@
 *.index
 __pycache__/
 *.pyc
+Comic-GAN/data/
 Comic-GAN/samples.pkl
